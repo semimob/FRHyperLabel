@@ -159,47 +159,42 @@ static UIColor *FRHyperLabelLinkColorHighlight;
 #pragma mark - Substring Locator
 
 - (NSInteger) characterIndexForPoint:(CGPoint) point {
-	CGRect boundingBox = [self attributedTextBoundingBox];
-	
-	CGMutablePathRef path = CGPathCreateMutable();
-	CGPathAddRect(path, NULL, boundingBox);
-	
-	CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)self.attributedText);
-	CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, self.attributedText.length), path, NULL);
-	
-	CGFloat verticalPadding = (CGRectGetHeight(self.frame) - CGRectGetHeight(boundingBox)) / 2;
-	CGFloat horizontalPadding = (CGRectGetWidth(self.frame) - CGRectGetWidth(boundingBox)) / 2;
-	CGFloat ctPointX = point.x - horizontalPadding;
-	CGFloat ctPointY = CGRectGetHeight(boundingBox) - (point.y - verticalPadding);
-	CGPoint ctPoint = CGPointMake(ctPointX, ctPointY);
-	
-	CFArrayRef lines = CTFrameGetLines(ctFrame);
-	
-	CGPoint* lineOrigins = malloc(sizeof(CGPoint)*CFArrayGetCount(lines));
-	CTFrameGetLineOrigins(ctFrame, CFRangeMake(0,0), lineOrigins);
-	
-	NSInteger indexOfCharacter = -1;
-	
-	for(CFIndex i = 0; i < CFArrayGetCount(lines); i++) {
-		CTLineRef line = CFArrayGetValueAtIndex(lines, i);
-		
-		CGFloat ascent, descent, leading;
-		CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
-		
-		CGPoint origin = lineOrigins[i];
-		
-		if (ctPoint.y > origin.y - descent) {
-			indexOfCharacter = CTLineGetStringIndexForPosition(line, ctPoint);
-			break;
-		}
-	}
-	
-	free(lineOrigins);
-	CFRelease(ctFrame);
-	CFRelease(path);
-	CFRelease(framesetter);
-	
-	return indexOfCharacter;
+    NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
+    NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeZero];
+    NSMutableAttributedString *str = self.attributedText.mutableCopy;
+    
+    NSMutableParagraphStyle *pStyle = [NSMutableParagraphStyle new];
+    pStyle.alignment = self.textAlignment;
+    
+    [str addAttribute:NSFontAttributeName value:self.font range:NSMakeRange(0, str.length)];
+    [str addAttribute:NSParagraphStyleAttributeName value:pStyle range:NSMakeRange(0, str.length)];
+    
+    NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:str];
+    
+    // Configure layoutManager and textStorage
+    [layoutManager addTextContainer:textContainer];
+    [textStorage addLayoutManager:layoutManager];
+    
+    // Configure textContainer
+    textContainer.lineFragmentPadding = 0.0;
+    textContainer.lineBreakMode = self.lineBreakMode;
+    textContainer.maximumNumberOfLines = self.numberOfLines;
+    textContainer.size = self.bounds.size;
+    
+    CGPoint locationOfTouchInLabel = point;
+    CGSize labelSize = self.bounds.size;
+    CGRect textBoundingBox = [layoutManager usedRectForTextContainer:textContainer];
+    CGPoint textContainerOffset = CGPointMake((labelSize.width - textBoundingBox.size.width) * 0.5 - textBoundingBox.origin.x,
+                                              (labelSize.height - textBoundingBox.size.height) * 0.5 - textBoundingBox.origin.y);
+    CGPoint locationOfTouchInTextContainer = CGPointMake(locationOfTouchInLabel.x - textContainerOffset.x,
+                                                         locationOfTouchInLabel.y - textContainerOffset.y);
+    NSInteger indexOfCharacter = NSNotFound;
+    if (CGRectContainsPoint(textBoundingBox, locationOfTouchInLabel)) {
+        indexOfCharacter = [layoutManager characterIndexForPoint:locationOfTouchInTextContainer
+                                                 inTextContainer:textContainer
+                        fractionOfDistanceBetweenInsertionPoints:nil];
+    }
+    return indexOfCharacter;
 }
 
 - (NSValue *)attributedTextRangeForPoint:(CGPoint)point {
