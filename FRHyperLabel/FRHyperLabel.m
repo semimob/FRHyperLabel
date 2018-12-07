@@ -127,7 +127,7 @@ static UIColor *FRHyperLabelLinkColorHighlight;
 			[UIView transitionWithView:self duration:highLightAnimationTime options:UIViewAnimationOptionTransitionCrossDissolve animations:^{
 				self.attributedText = attributedString;
 			} completion:nil];
-			return;
+			break;
 		}
 	}
 	[super touchesBegan:touches withEvent:event];
@@ -150,7 +150,7 @@ static UIColor *FRHyperLabelLinkColorHighlight;
 		if (rangeValue) {
 			void(^handler)(FRHyperLabel *label, NSRange selectedRange) = self.handlerDictionary[rangeValue];
 			handler(self, [rangeValue rangeValue]);
-			return;
+			break;
 		}
 	}
 	[super touchesEnded:touches withEvent:event];
